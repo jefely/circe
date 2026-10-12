@@ -199,8 +199,11 @@ def tool_defs(agent_id: str) -> list[dict]:
                             "这次调用属于哪一类任务。**同一类任务每次都要用同一个字符串**"
                             "——因为它直接进 span 维度（「跨多少种任务类型」），"
                             "同一个任务换个名字写就会被算成多了一种。"
+                            "**不确定该用哪个词时，先调 circe_core_profile_query——"
+                            "它会返回该 agent 已有的技能名清单，能对上就复用**；"
+                            "已有名字都不合适时才新起一个。"
                             "用简短的名词，例如 \"问答\" / \"检索\" / \"代码审查\" / \"翻译\"。"
-                            "**不确定时用 \"unspecified\"**，不要编一个只此一次的名字。")},
+                            "真拿不准就用 \"unspecified\"，不要编一个只此一次的名字。")},
                     "success": {"type": "boolean", "description": "调用是否成功"},
                     "latency_ms": {"type": "number", "description": "耗时（毫秒）"},
                     "timestamp": {
