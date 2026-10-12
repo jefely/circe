@@ -43,7 +43,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -484,17 +486,54 @@ class Server:
                 "error": {"code": code, "message": message}}
 
 
+TRACE_ENV = "CIRCE_MCP_TRACE"
+
+
 def serve_stdio(impl: CirceMcp) -> int:
     """一行一个 JSON-RPC 消息，直到 stdin 关闭。
 
     **stdout 只能放协议消息**——任何调试输出都必须走 stderr，
     否则会污染 JSON-RPC 流，客户端会解析失败。
+
+    ⚠️ **协议追踪（可选，默认关闭）**：设了环境变量 `CIRCE_MCP_TRACE=<路径>`
+    就把**两个方向的原文**追加到那个文件——与 `tools/mcp_recording_proxy.py`
+    做的是同一件事，只是这一份在服务器内部，**不需要改客户端的启动命令**。
+
+    **为什么需要它**（2026-10-12 实测逼出来的）：
+
+        问一个客户端「你现在能用哪些 circe 工具？」，它答「没有 circe 相关的函数」——
+        而**同一个回答里，它编造了 `runTests`、`create_session` 这些不存在的工具名**。
+
+    **所以调用方的自述不能当证据。** 要判「工具到底有没有送到模型手里」，
+    只能从**我们这一侧**记录收到的每一条请求：调了 `tools/list` 没有？
+    拿到了几个工具？有没有 `tools/call`？
+
+    这与本项目一贯的做法同源：**判据要落在自己能观察到的那一层。**
     """
     srv = Server(impl)
+    trace_path = os.environ.get(TRACE_ENV)
+    trace = None
+    if trace_path:
+        try:
+            trace = open(trace_path, "a", encoding="utf-8")
+            trace.write(f"\n=== 追踪开始 {time.strftime('%Y-%m-%d %H:%M:%S')} "
+                        f"agent={impl.agent_id} pid={os.getpid()} ===\n")
+            trace.flush()
+        except OSError as e:
+            print(f"[mcp] 追踪文件打不开（{trace_path}）: {e}", file=sys.stderr)
+            trace = None
+
+    def t(direction: str, raw: str) -> None:
+        if trace is None:
+            return
+        trace.write(f"{time.strftime('%H:%M:%S')} {direction} {raw.rstrip()}\n")
+        trace.flush()
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
+        t("C→S", line)
         try:
             msg = json.loads(line)
         except json.JSONDecodeError as e:
@@ -503,8 +542,13 @@ def serve_stdio(impl: CirceMcp) -> int:
         resp = srv.handle(msg)
         if resp is None:
             continue
-        sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
+        out = json.dumps(resp, ensure_ascii=False)
+        t("S→C", out)
+        sys.stdout.write(out + "\n")
         sys.stdout.flush()
+    if trace is not None:
+        trace.write(f"=== 结束 {time.strftime('%H:%M:%S')} ===\n")
+        trace.close()
     return 0
 
 

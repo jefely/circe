@@ -27,3 +27,7 @@ mcp/_capture*.log
 # ── 论文构建产物（由 tools/md_to_pdf.py 重新生成）──────
 # 仓库里只放 Markdown 源，PDF 不入库。
 paper/*.pdf
+
+# ── 协议追踪（诊断用，不入库）──────────────────────────
+mcp/_trace*.log
+
