@@ -22,7 +22,7 @@ ROOT = Path(r"D:\myproject")
 # 「论文声明 200 / MCP 自检 33」全都来自那份旧文件——
 # **一个检查报出了正确的失败，但它检查的不是我以为的那份文档。**
 # 这与 §6 那条同形：检查的正确性依赖于「它读的是哪个文件」这个未声明的假设。
-PAPER = ROOT / "CIRCE" / "paper" / "CIRCE-论文-v0.2.md"
+PAPER = ROOT / "CIRCE" / "paper" / "CIRCE-论文-v0.3.md"
 PY = sys.executable
 
 SUITES = [
@@ -145,7 +145,8 @@ def main() -> int:
             check(f"表格里有 {label} 一行", False, "没找到")
 
     # ---- ② span 修正的关键数字 ----
-    print("\n  ② §3.3 的两个数值（必须与自检的实测一致）")
+    # （标签 2026-10-12 修正：这两个数在 v0.3 的 §4.4.3，v0.2 时是 §5.3。）
+    print("\n  ② §4.4.3 的两个数值（必须与自检的实测一致）")
     for name, want in (("原始 span", "0.22619"), ("span_by_task", "0.074074")):
         check(f"论文写了 {name} = {want}", want in text)
 
@@ -191,6 +192,25 @@ def main() -> int:
     heads = re.findall(r"^## ([一二三四五六七八九十]+)、", text, re.M)
     check("章节编号无重复", len(heads) == len(set(heads)),
           f"{len(heads)} 节: {heads}")
+
+    # ---- ⑥ 交叉引用可解析 ----
+    # **为什么加这一条**：2026-10-12 重排了全文（初衷/框架/实现/验证/错路/结论/引用），
+    # 每个 §X.Y 都可能指空。而这次重排恰好是本文自己讲的那条洞的现场：
+    # 「一个层次的正确性，依赖于另一个层次上没有被核对的东西」——
+    # 重排之后，「引用还指得对」就是一个没被核对的假设。所以把它变成检查。
+    # （加这条检查时，脚本里原来就有一处陈旧引用：§3.3 其实指的是 §5.3 的两个数值。）
+    print("\n  ⑥ 交叉引用（每个 §… 都要指到一个真实存在的章节）")
+    CN = "一二三四五六七八九十"
+    top = {CN.index(c) + 1 for c in re.findall(r"^## ([一二三四五六七八九十])、", text, re.M)}
+    subs = set(re.findall(r"^#{3,4} (\d+(?:\.\d+)+)", text, re.M))
+    refs = set(re.findall(r"§(\d+(?:\.\d+)*)", text))
+    dangling = []
+    for r in sorted(refs):
+        ok = (r in subs) if "." in r else (int(r) in top)
+        if not ok:
+            dangling.append(r)
+    check(f"论文里 {len(refs)} 个交叉引用都指到存在的章节", not dangling,
+          f"指向不存在的: {dangling}" if dangling else f"{len(refs)} 个全部可解析")
 
     print()
     print("=" * 76)

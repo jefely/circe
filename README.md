@@ -350,7 +350,7 @@ client.report_call()     把 stack_depth 传上去
 ### 洞五：`skill` 是自由文本，而它直接进 `span`（**真实模型交互**发现）
 
 **2026-10-10，为验证 MCP 挂载而把一个真实的本地 LLM 接到另一端时被照出来的。**
-（详细证据见 [`mcp/FINDINGS.md`](mcp/FINDINGS.md) §二 F1；论文 §6.2 记为洞五。）
+（详细证据见 [`mcp/FINDINGS.md`](mcp/FINDINGS.md) §二 F1；论文 §5.2.4 记为洞五。）
 
 `span` 的一个输入是「跨多少种任务类型」：
 
