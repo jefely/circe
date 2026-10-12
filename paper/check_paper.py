@@ -212,6 +212,31 @@ def main() -> int:
     check(f"论文里 {len(refs)} 个交叉引用都指到存在的章节", not dangling,
           f"指向不存在的: {dangling}" if dangling else f"{len(refs)} 个全部可解析")
 
+    # ---- ⑦ 编号递增且不缺号 ----
+    # **为什么加这一条**：有了 ⑥ 只能保证「引用的目标存在」，
+    # 不能保证「编号是对的」——一个 §5.2 完全可能排在 §5.1 前面，而所有引用照样解析得开。
+    # 重排之后这正是下一个没被核对的假设。
+    print("\n  ⑦ 章节编号（递增且不缺号）")
+    tops = [CN.index(c) + 1
+            for c in re.findall(r"^## ([一二三四五六七八九十])、", text, re.M)]
+    ok_top = tops == list(range(1, len(tops) + 1))
+    check(f"顶级章节 {len(tops)} 节递增且不缺号", ok_top,
+          "" if ok_top else f"实际: {tops}")
+
+    nums = re.findall(r"^#{3,4} (\d+(?:\.\d+)+)", text, re.M)
+    groups: dict[str, list[int]] = {}
+    for n in nums:
+        parent, last = n.rsplit(".", 1)
+        groups.setdefault(parent, []).append(int(last))
+    bad = []
+    for parent, kids in groups.items():
+        if kids != sorted(kids):
+            bad.append(f"{parent} 顺序错: {kids}")
+        elif kids != list(range(kids[0], kids[0] + len(kids))):
+            bad.append(f"{parent} 缺号: {kids}")
+    check(f"{len(groups)} 组子节编号递增且不缺号", not bad,
+          "; ".join(bad) if bad else f"{len(nums)} 个子节全部合规")
+
     print()
     print("=" * 76)
     print(f"  通过 {len(PASS)}   失败 {len(FAIL)}")
